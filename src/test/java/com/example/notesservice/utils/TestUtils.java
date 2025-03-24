@@ -2,11 +2,11 @@ package com.example.notesservice.utils;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -41,7 +41,8 @@ public class TestUtils {
 
 	public static final String GUID = "6ed39465-d6d3-4ec4-b27d-1dcb870b2992";
 	public static String customData;
-	public static final String URL = "https://yaksha-stage-sbfn.azurewebsites.net/api/TestCaseResultsEnqueue?code=AjU0mofZlYs9oYbZnJpVwJWRY1dRKkDyS3QDY8aJAvrcjJvgBAXVDg==";
+	public static final String URL =  "https://compiler.techademy.com/v1/mfa-results/push";
+
 	static {
 		total = 0;
 		passed = 0;
@@ -49,9 +50,6 @@ public class TestUtils {
 
 		testResult = "";
 
-//			xmlFile = new File("./Notes-app-boot-mysql.xml");
-//			xmlFile.delete();
-//			
 		businessTestFile = new File("./output_revised.txt");
 		businessTestFile.delete();
 
@@ -79,7 +77,7 @@ public class TestUtils {
 		TestResults testResults = new TestResults();
 		Map<String, TestCaseResultDto> testCaseResults = new HashMap<String, TestCaseResultDto>();
 
-		customData = readData("./custom.ih");
+		customData = readData("../custom.ih");
 		String resultStatus = "Failed";
 		int resultScore = 0;
 		if (result.toString().equals("true")) {
@@ -95,132 +93,91 @@ public class TestUtils {
 			testCaseResults.put(GUID,
 					new TestCaseResultDto(testName, testType, 1, resultScore, resultStatus, true, ""));
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
+
 			e.printStackTrace();
 			System.out.println(e.getMessage());
 		}
+		
+		String hostName = System.getenv("HOSTNAME");
+		String AttemptId = System.getenv("ATTEMPT_ID");
+
 		testResults.setTestCaseResults(asJsonString(testCaseResults));
 		testResults.setCustomData(customData);
+		testResults.setHosttName(hostName);
+		testResults.setAttemptId(AttemptId);
 
-		String finalResult = asJsonString(testResults);
-		System.out.println(finalResult);
-//		HttpClient client = HttpClient.newHttpClient();
-//	        HttpRequest request = HttpRequest.newBuilder()
-//	                .uri(URI.create(URL))
-//	                .POST(HttpRequest.BodyPublishers.ofString(finalResult, Charset.defaultCharset()))
-//	                .build();
-//
-//	        try {
-//				HttpResponse<String> response = client.send(request,
-//				        HttpResponse.BodyHandlers.ofString());
-//			} catch (IOException | InterruptedException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//				System.out.println(e);
-//			}
+		int length = 0;
+		if(customData != null) {length = customData.length(); }
 
-		URL url = new URL(URL);
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		conn.setDoOutput(true);
-		conn.setRequestMethod("POST");
-		conn.setRequestProperty("Content-Type", "application/json");
 
-		String input = asJsonString(testResults);
+		try {
 
-		OutputStream os = conn.getOutputStream();
-		os.write(input.getBytes());
-		os.flush();
+			URL url = new URL(URL);
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			conn.setDoOutput(true);
+			conn.setRequestMethod("POST");
+			conn.setRequestProperty("Content-Type", "application/json");
 
-		if (conn.getResponseCode() != HttpURLConnection.HTTP_CREATED) {
-			throw new RuntimeException("Failed : HTTP error code : " + conn.getResponseCode());
-		}
+			//	String input = "{\"qty\":100,\"name\":\"iPad 4\"}";
+			String input = asJsonString(testResults);
+			OutputStream os = conn.getOutputStream();
+			os.write(input.getBytes());
+			os.flush();
+			os.close();
 
-		BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
+			int responseCode = conn.getResponseCode();
+			if (!(responseCode == HttpURLConnection.HTTP_OK  || responseCode == HttpURLConnection.HTTP_CREATED)) { 
+				System.out.println(RED_BOLD_BRIGHT + "⚠️ Unable to push test cases,please try again! [" + responseCode +"|" + hostName +"|" + AttemptId + "|" + length + "]" + TEXT_RESET);
+			}
 
-		String output;
-		System.out.println("Output from Server .... \n");
-		while ((output = br.readLine()) != null) {
-			System.out.println(output);
+
+
+			// BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
+
+			// // String output;
+			// // while ((output = br.readLine()) != null) {
+			// // 	System.out.println(output);
+			// // }
+
+			conn.disconnect();
+
+		} catch (MalformedURLException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+
 		}
 
 		total++;
 		String[] r = testName.split("(?=\\p{Upper})");
 		System.out.print("\n" + BLUE_BOLD_BRIGHT + "=>");
-		// testResult = testResult + "\n" + BLUE_BOLD_BRIGHT + "=>";
 
 		System.out.print(YELLOW_BOLD_BRIGHT + "Test For : ");
-		// testResult = testResult + YELLOW_BOLD_BRIGHT + "Test For : ";
 
 		for (int i = 1; i < r.length; i++) {
 			System.out.print(YELLOW_BOLD_BRIGHT + r[i] + " ");
-			// testResult = testResult + YELLOW_BOLD_BRIGHT + r[i] + " ";
+
 		}
 		System.out.print(" : ");
-		// testResult = testResult + " : ";
+
 		if (result.toString().equals("true")) {
 			System.out.println(GREEN_BOLD_BRIGHT + "PASSED" + TEXT_RESET);
-			// testResult = testResult + GREEN_BOLD_BRIGHT + "PASSED" + TEXT_RESET;
 			passed++;
 		} else {
 			System.out.println(RED_BOLD_BRIGHT + "FAILED" + TEXT_RESET);
-			// testResult = testResult + RED_BOLD_BRIGHT + "FAILED" + TEXT_RESET;
 			failed++;
 		}
-//			FileWriter writer = new FileWriter(file,true);
-//			writer.append("\n" + testName + "=" + result);
-//			writer.flush();
-//			writer.close();
-
-		// createXML(testName, file);
-
 	}
 
 	public static void testReport() {
-		// System.out.println(testResult);
-		// System.out.print("\n" + BLUE_BOLD_BRIGHT + "TEST CASES EVALUATED : " + total
-		// + TEXT_RESET);
-		// System.out.print("\n" + GREEN_BOLD_BRIGHT + "PASSED : " + passed +
-		// TEXT_RESET);
-		// System.out.println("\n" + RED_BOLD_BRIGHT + "FAILED : " + failed +
-		// TEXT_RESET);
 
-	}
+		System.out.print("\n" + BLUE_BOLD_BRIGHT + "TEST CASES EVALUATED : " + total + TEXT_RESET);
+		System.out.print("\n" + GREEN_BOLD_BRIGHT + "PASSED : " + passed + TEXT_RESET);
+		System.out.println("\n" + RED_BOLD_BRIGHT + "FAILED : " + failed + TEXT_RESET);
 
-	public static void createXML(String testName, File file) throws IOException {
-		FileWriter writer = new FileWriter(xmlFile, true);
-		if (file.getName().contains("output_revised")) {
-
-			writer.append(
-					"\r\n<cases xmlns:java=\"http://java.sun.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"java:com.assessment.data.TestCase\">\r\n"
-							+ "		<test-case-type>Functional</test-case-type>\r\n"
-							+ "		<expected-ouput>true</expected-ouput>\r\n" + "		<name>" + testName
-							+ "</name>\r\n" + "		<weight>8</weight>\r\n" + "		<mandatory>true</mandatory>\r\n"
-							+ "		<desc>" + testName + "</desc>\r\n" + "	</cases>");
-			writer.flush();
-			writer.close();
-		}
-		if (file.getName().contains("boundary")) {
-
-			writer.append(
-					"\r\n<cases xmlns:java=\"http://java.sun.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"java:com.assessment.data.TestCase\">\r\n"
-							+ "		<test-case-type>Boundary</test-case-type>\r\n"
-							+ "		<expected-ouput>true</expected-ouput>\r\n" + "		<name>" + testName
-							+ "</name>\r\n" + "		<weight>3</weight>\r\n" + "		<mandatory>true</mandatory>\r\n"
-							+ "		<desc>" + testName + "</desc>\r\n" + "	</cases>");
-			writer.flush();
-			writer.close();
-		}
-		if (file.getName().contains("exception")) {
-
-			writer.append(
-					"\r\n<cases xmlns:java=\"http://java.sun.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"java:com.assessment.data.TestCase\">\r\n"
-							+ "		<test-case-type>Exception</test-case-type>\r\n"
-							+ "		<expected-ouput>true</expected-ouput>\r\n" + "		<name>" + testName
-							+ "</name>\r\n" + "		<weight>5</weight>\r\n" + "		<mandatory>true</mandatory>\r\n"
-							+ "		<desc>" + testName + "</desc>\r\n" + "	</cases>");
-			writer.flush();
-			writer.close();
-		}
 	}
 
 	public static String currentTest() {
@@ -233,8 +190,10 @@ public class TestUtils {
 		String jsonString = "";
 		try {
 			jsonString = mapper.writeValueAsString(obj);
+//			System.out.println("jsonString");
+//			System.out.println(jsonString);
 		} catch (JsonProcessingException e) {
-			// TODO Auto-generated catch block
+
 			e.printStackTrace();
 		}
 		return jsonString;
